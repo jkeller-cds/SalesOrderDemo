@@ -19,8 +19,19 @@ builder.Services.AddRazorComponents()
 builder.Services.AddMudServices();
 
 // Add DbContext
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    // Use SQLite for development (if connection string contains .db) or SQL Server for production
+    if (connectionString?.Contains(".db") == true)
+    {
+        options.UseSqlite(connectionString);
+    }
+    else
+    {
+        options.UseSqlServer(connectionString);
+    }
+});
 
 // Add Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>

@@ -123,6 +123,9 @@ $RECYCLE.BIN/
 *.mdf
 *.ldf
 *.ndf
+*.db
+*.db-shm
+*.db-wal
 
 # Publish Web Output
 *.[Pp]ublish.xml
