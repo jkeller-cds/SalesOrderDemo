@@ -1,0 +1,106 @@
+@page "/orders"
+@using SalesOrderDemo.Application.DTOs
+@using SalesOrderDemo.Application.Interfaces
+@inject ISalesOrderService OrderService
+@inject NavigationManager NavigationManager
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Sales Orders</PageTitle>
+
+<MudText Typo="Typo.h3" Class="mb-4">Sales Orders</MudText>
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => NavigationManager.NavigateTo("/orders/create"))" Class="mb-4">
+    Create Order
+</MudButton>
+
+@if (_orders == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudTable Items="@_orders" Hover="true" Striped="true" Filter="new Func<SalesOrderDto, bool>(FilterFunc)">
+        <ToolBarContent>
+            <MudTextField @bind-Value="_searchString" Placeholder="Search" Adornment="Adornment.Start" 
+                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>Order Number</MudTh>
+            <MudTh>Customer</MudTh>
+            <MudTh>Order Date</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Total Amount</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Order Number">@context.OrderNumber</MudTd>
+            <MudTd DataLabel="Customer">@context.CustomerName</MudTd>
+            <MudTd DataLabel="Order Date">@context.OrderDate.ToString("d")</MudTd>
+            <MudTd DataLabel="Status">
+                <MudChip T="string" Color="GetStatusColor(context.Status)">@context.Status</MudChip>
+            </MudTd>
+            <MudTd DataLabel="Total Amount">@context.TotalAmount.ToString("C")</MudTd>
+            <MudTd DataLabel="Actions">
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" OnClick="@(() => NavigationManager.NavigateTo($"/orders/{context.Id}"))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => NavigationManager.NavigateTo($"/orders/edit/{context.Id}"))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => DeleteOrder(context.Id))" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private List<SalesOrderDto>? _orders;
+    private string _searchString = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrders();
+    }
+
+    private async Task LoadOrders()
+    {
+        var orders = await OrderService.GetAllOrdersAsync();
+        _orders = orders.ToList();
+    }
+
+    private bool FilterFunc(SalesOrderDto order)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        if (order.OrderNumber.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (order.CustomerName.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+
+    private Color GetStatusColor(SalesOrderDemo.Domain.Enums.OrderStatus status)
+    {
+        return status switch
+        {
+            SalesOrderDemo.Domain.Enums.OrderStatus.Pending => Color.Warning,
+            SalesOrderDemo.Domain.Enums.OrderStatus.Processing => Color.Info,
+            SalesOrderDemo.Domain.Enums.OrderStatus.Shipped => Color.Primary,
+            SalesOrderDemo.Domain.Enums.OrderStatus.Delivered => Color.Success,
+            SalesOrderDemo.Domain.Enums.OrderStatus.Cancelled => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+    private async Task DeleteOrder(int id)
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Confirm Delete",
+            "Are you sure you want to delete this order?",
+            yesText: "Delete", cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await OrderService.DeleteOrderAsync(id);
+            await LoadOrders();
+            Snackbar.Add("Order deleted successfully", Severity.Success);
+        }
+    }
+}

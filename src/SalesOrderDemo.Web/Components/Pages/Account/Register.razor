@@ -1,0 +1,82 @@
+@page "/Account/Register"
+@using Microsoft.AspNetCore.Identity
+@using SalesOrderDemo.Infrastructure.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager NavigationManager
+
+<PageTitle>Register</PageTitle>
+
+<MudGrid Justify="Justify.Center" Class="mt-8">
+    <MudItem xs="12" sm="8" md="6" lg="4">
+        <MudPaper Class="pa-8" Elevation="3">
+            <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4">Register</MudText>
+            
+            <MudTextField @bind-Value="_email" Label="Email" Required="true" InputType="InputType.Email" />
+            <MudTextField @bind-Value="_firstName" Label="First Name" />
+            <MudTextField @bind-Value="_lastName" Label="Last Name" />
+            <MudTextField @bind-Value="_password" Label="Password" Required="true" InputType="InputType.Password" />
+            <MudTextField @bind-Value="_confirmPassword" Label="Confirm Password" Required="true" InputType="InputType.Password" />
+            
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-2">@_errorMessage</MudAlert>
+            }
+
+            @if (!string.IsNullOrEmpty(_successMessage))
+            {
+                <MudAlert Severity="Severity.Success" Class="mt-2">@_successMessage</MudAlert>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="HandleRegister" Class="mt-4">
+                Register
+            </MudButton>
+            
+            <MudText Typo="Typo.body2" Align="Align.Center" Class="mt-4">
+                Already have an account? <MudLink Href="/Account/Login">Login</MudLink>
+            </MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string _email = "";
+    private string _firstName = "";
+    private string _lastName = "";
+    private string _password = "";
+    private string _confirmPassword = "";
+    private string _errorMessage = "";
+    private string _successMessage = "";
+
+    private async Task HandleRegister()
+    {
+        _errorMessage = "";
+        _successMessage = "";
+
+        if (_password != _confirmPassword)
+        {
+            _errorMessage = "Passwords do not match.";
+            return;
+        }
+
+        var user = new ApplicationUser
+        {
+            UserName = _email,
+            Email = _email,
+            FirstName = _firstName,
+            LastName = _lastName
+        };
+
+        var result = await UserManager.CreateAsync(user, _password);
+
+        if (result.Succeeded)
+        {
+            await SignInManager.SignInAsync(user, isPersistent: false);
+            NavigationManager.NavigateTo("/", forceLoad: true);
+        }
+        else
+        {
+            _errorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
+        }
+    }
+}

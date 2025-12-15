@@ -1,0 +1,40 @@
+@using SalesOrderDemo.Application.DTOs
+@using SalesOrderDemo.Application.Interfaces
+@inject IProductService ProductService
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="Product.Name" Label="Name" Required="true" />
+        <MudTextField @bind-Value="Product.SKU" Label="SKU" Required="true" />
+        <MudTextField @bind-Value="Product.Description" Label="Description" Lines="3" />
+        <MudNumericField @bind-Value="Product.Price" Label="Price" Format="F2" Required="true" />
+        <MudNumericField @bind-Value="Product.StockQuantity" Label="Stock Quantity" Required="true" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Save">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] dynamic? MudDialog { get; set; }
+    [Parameter] public ProductDto Product { get; set; } = new();
+
+    private async Task Save()
+    {
+        if (Product.Id == 0)
+        {
+            await ProductService.CreateProductAsync(Product);
+        }
+        else
+        {
+            await ProductService.UpdateProductAsync(Product);
+        }
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

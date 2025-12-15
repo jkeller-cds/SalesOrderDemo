@@ -1,0 +1,41 @@
+@using SalesOrderDemo.Application.DTOs
+@using SalesOrderDemo.Application.Interfaces
+@inject ICustomerService CustomerService
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="Customer.Name" Label="Name" Required="true" />
+        <MudTextField @bind-Value="Customer.Email" Label="Email" Required="true" InputType="InputType.Email" />
+        <MudTextField @bind-Value="Customer.Phone" Label="Phone" />
+        <MudTextField @bind-Value="Customer.Address" Label="Address" />
+        <MudTextField @bind-Value="Customer.City" Label="City" />
+        <MudTextField @bind-Value="Customer.Country" Label="Country" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Save">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] dynamic? MudDialog { get; set; }
+    [Parameter] public CustomerDto Customer { get; set; } = new();
+
+    private async Task Save()
+    {
+        if (Customer.Id == 0)
+        {
+            await CustomerService.CreateCustomerAsync(Customer);
+        }
+        else
+        {
+            await CustomerService.UpdateCustomerAsync(Customer);
+        }
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}
