@@ -1,0 +1,52 @@
+@page "/Account/Login"
+@using Microsoft.AspNetCore.Identity
+@using SalesOrderDemo.Infrastructure.Identity
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager NavigationManager
+
+<PageTitle>Login</PageTitle>
+
+<MudGrid Justify="Justify.Center" Class="mt-8">
+    <MudItem xs="12" sm="8" md="6" lg="4">
+        <MudPaper Class="pa-8" Elevation="3">
+            <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4">Login</MudText>
+            
+            <MudTextField @bind-Value="_email" Label="Email" Required="true" InputType="InputType.Email" />
+            <MudTextField @bind-Value="_password" Label="Password" Required="true" InputType="InputType.Password" />
+            
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-2">@_errorMessage</MudAlert>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="HandleLogin" Class="mt-4">
+                Login
+            </MudButton>
+            
+            <MudText Typo="Typo.body2" Align="Align.Center" Class="mt-4">
+                Don't have an account? <MudLink Href="/Account/Register">Register</MudLink>
+            </MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string _email = "";
+    private string _password = "";
+    private string _errorMessage = "";
+
+    private async Task HandleLogin()
+    {
+        _errorMessage = "";
+        var result = await SignInManager.PasswordSignInAsync(_email, _password, isPersistent: false, lockoutOnFailure: false);
+        
+        if (result.Succeeded)
+        {
+            NavigationManager.NavigateTo("/", forceLoad: true);
+        }
+        else
+        {
+            _errorMessage = "Invalid login attempt.";
+        }
+    }
+}

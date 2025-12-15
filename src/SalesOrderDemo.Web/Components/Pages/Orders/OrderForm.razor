@@ -1,0 +1,177 @@
+@page "/orders/create"
+@page "/orders/edit/{Id:int}"
+@using SalesOrderDemo.Application.DTOs
+@using SalesOrderDemo.Application.Interfaces
+@using SalesOrderDemo.Domain.Enums
+@inject ISalesOrderService OrderService
+@inject ICustomerService CustomerService
+@inject IProductService ProductService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_isEdit ? "Edit Order" : "Create Order")</PageTitle>
+
+<MudText Typo="Typo.h3" Class="mb-4">@(_isEdit ? "Edit Order" : "Create Order")</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_order.OrderNumber" Label="Order Number" Required="true" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudDatePicker @bind-Date="_orderDate" Label="Order Date" Required="true" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect @bind-Value="_order.CustomerId" Label="Customer" Required="true">
+                    @foreach (var customer in _customers)
+                    {
+                        <MudSelectItem Value="@customer.Id">@customer.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect @bind-Value="_order.Status" Label="Status" Required="true">
+                    @foreach (OrderStatus status in Enum.GetValues(typeof(OrderStatus)))
+                    {
+                        <MudSelectItem Value="@status">@status.ToString()</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_order.Notes" Label="Notes" Lines="3" />
+            </MudItem>
+        </MudGrid>
+
+        <MudText Typo="Typo.h5" Class="mt-4 mb-2">Order Items</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddOrderItem" Class="mb-2">
+            Add Item
+        </MudButton>
+
+        @foreach (var item in _order.OrderItems)
+        {
+            var index = _order.OrderItems.IndexOf(item);
+            <MudPaper Class="pa-4 mb-2" Elevation="1">
+                <MudGrid>
+                    <MudItem xs="12" md="4">
+                        <MudSelect @bind-Value="item.ProductId" Label="Product" Required="true">
+                            @foreach (var product in _products)
+                            {
+                                <MudSelectItem Value="@product.Id">@product.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="2">
+                        <MudNumericField @bind-Value="item.Quantity" Label="Quantity" Required="true" Min="1" />
+                    </MudItem>
+                    <MudItem xs="12" md="2">
+                        <MudNumericField @bind-Value="item.UnitPrice" Label="Unit Price" Format="F2" Required="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="2">
+                        <MudNumericField Value="@(item.Quantity * item.UnitPrice)" Label="Total" Format="C" ReadOnly="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="2">
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => RemoveOrderItem(index))" />
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        }
+
+        <MudText Typo="Typo.h5" Class="mt-4">Total Amount: @CalculateTotal().ToString("C")</MudText>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Class="mt-4 mr-2">
+            Save
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" OnClick="@(() => NavigationManager.NavigateTo("/orders"))" Class="mt-4">
+            Cancel
+        </MudButton>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    private SalesOrderDto _order = new();
+    private List<CustomerDto> _customers = new();
+    private List<ProductDto> _products = new();
+    private DateTime? _orderDate = DateTime.Today;
+    private bool _loading = true;
+    private bool _isEdit = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isEdit = Id.HasValue;
+
+        var customersTask = CustomerService.GetAllCustomersAsync();
+        var productsTask = ProductService.GetAllProductsAsync();
+
+        await Task.WhenAll(customersTask, productsTask);
+
+        _customers = (await customersTask).ToList();
+        _products = (await productsTask).ToList();
+
+        if (_isEdit && Id.HasValue)
+        {
+            _order = await OrderService.GetOrderByIdAsync(Id.Value) ?? new SalesOrderDto();
+            _orderDate = _order.OrderDate;
+        }
+        else
+        {
+            _order.OrderDate = DateTime.Today;
+            _order.Status = OrderStatus.Pending;
+        }
+
+        _loading = false;
+    }
+
+    private void AddOrderItem()
+    {
+        _order.OrderItems.Add(new OrderItemDto());
+    }
+
+    private void RemoveOrderItem(int index)
+    {
+        _order.OrderItems.RemoveAt(index);
+    }
+
+    private decimal CalculateTotal()
+    {
+        return _order.OrderItems.Sum(i => i.Quantity * i.UnitPrice);
+    }
+
+    private async Task Save()
+    {
+        _order.OrderDate = _orderDate ?? DateTime.Today;
+        _order.TotalAmount = CalculateTotal();
+
+        // Calculate total price for each item
+        foreach (var item in _order.OrderItems)
+        {
+            item.TotalPrice = item.Quantity * item.UnitPrice;
+        }
+
+        try
+        {
+            if (_isEdit)
+            {
+                await OrderService.UpdateOrderAsync(_order);
+                Snackbar.Add("Order updated successfully", Severity.Success);
+            }
+            else
+            {
+                await OrderService.CreateOrderAsync(_order);
+                Snackbar.Add("Order created successfully", Severity.Success);
+            }
+
+            NavigationManager.NavigateTo("/orders");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving order: {ex.Message}", Severity.Error);
+        }
+    }
+}

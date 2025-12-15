@@ -1,0 +1,125 @@
+@page "/products"
+@using SalesOrderDemo.Application.DTOs
+@using SalesOrderDemo.Application.Interfaces
+@inject IProductService ProductService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Products</PageTitle>
+
+<MudText Typo="Typo.h3" Class="mb-4">Products</MudText>
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddDialog" Class="mb-4">
+    Add Product
+</MudButton>
+
+@if (_products == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudTable Items="@_products" Hover="true" Striped="true" Filter="new Func<ProductDto, bool>(FilterFunc)">
+        <ToolBarContent>
+            <MudTextField @bind-Value="_searchString" Placeholder="Search" Adornment="Adornment.Start" 
+                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>SKU</MudTh>
+            <MudTh>Description</MudTh>
+            <MudTh>Price</MudTh>
+            <MudTh>Stock</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="SKU">@context.SKU</MudTd>
+            <MudTd DataLabel="Description">@context.Description</MudTd>
+            <MudTd DataLabel="Price">@context.Price.ToString("C")</MudTd>
+            <MudTd DataLabel="Stock">@context.StockQuantity</MudTd>
+            <MudTd DataLabel="Actions">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => OpenEditDialog(context))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => DeleteProduct(context.Id))" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private List<ProductDto>? _products;
+    private string _searchString = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
+        var products = await ProductService.GetAllProductsAsync();
+        _products = products.ToList();
+    }
+
+    private bool FilterFunc(ProductDto product)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        if (product.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (product.SKU.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (product.Description.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+
+    private async Task OpenAddDialog()
+    {
+        var parameters = new DialogParameters<ProductDialog>
+        {
+            { x => x.Product, new ProductDto() }
+        };
+
+        var dialog = await DialogService.ShowAsync<ProductDialog>("Add Product", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadProducts();
+            Snackbar.Add("Product added successfully", Severity.Success);
+        }
+    }
+
+    private async Task OpenEditDialog(ProductDto product)
+    {
+        var parameters = new DialogParameters<ProductDialog>
+        {
+            { x => x.Product, product }
+        };
+
+        var dialog = await DialogService.ShowAsync<ProductDialog>("Edit Product", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadProducts();
+            Snackbar.Add("Product updated successfully", Severity.Success);
+        }
+    }
+
+    private async Task DeleteProduct(int id)
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Confirm Delete",
+            "Are you sure you want to delete this product?",
+            yesText: "Delete", cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await ProductService.DeleteProductAsync(id);
+            await LoadProducts();
+            Snackbar.Add("Product deleted successfully", Severity.Success);
+        }
+    }
+}

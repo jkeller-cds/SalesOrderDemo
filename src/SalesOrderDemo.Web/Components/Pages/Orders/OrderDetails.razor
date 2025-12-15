@@ -1,0 +1,88 @@
+@page "/orders/{Id:int}"
+@using SalesOrderDemo.Application.DTOs
+@using SalesOrderDemo.Application.Interfaces
+@inject ISalesOrderService OrderService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Order Details</PageTitle>
+
+@if (_order == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudText Typo="Typo.h3" Class="mb-4">Order Details</MudText>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="2">
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.h6">Order Number:</MudText>
+                <MudText>@_order.OrderNumber</MudText>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.h6">Order Date:</MudText>
+                <MudText>@_order.OrderDate.ToString("D")</MudText>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.h6">Customer:</MudText>
+                <MudText>@_order.CustomerName</MudText>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.h6">Status:</MudText>
+                <MudChip T="string" Color="GetStatusColor(_order.Status)">@_order.Status</MudChip>
+            </MudItem>
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6">Notes:</MudText>
+                <MudText>@_order.Notes</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudText Typo="Typo.h5" Class="mb-4">Order Items</MudText>
+    <MudTable Items="@_order.OrderItems" Hover="true" Striped="true">
+        <HeaderContent>
+            <MudTh>Product</MudTh>
+            <MudTh>Quantity</MudTh>
+            <MudTh>Unit Price</MudTh>
+            <MudTh>Total Price</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Product">@context.ProductName</MudTd>
+            <MudTd DataLabel="Quantity">@context.Quantity</MudTd>
+            <MudTd DataLabel="Unit Price">@context.UnitPrice.ToString("C")</MudTd>
+            <MudTd DataLabel="Total Price">@context.TotalPrice.ToString("C")</MudTd>
+        </RowTemplate>
+    </MudTable>
+
+    <MudPaper Class="pa-4 mt-4" Elevation="2">
+        <MudText Typo="Typo.h5">Total Amount: @_order.TotalAmount.ToString("C")</MudText>
+    </MudPaper>
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => NavigationManager.NavigateTo("/orders"))" Class="mt-4">
+        Back to Orders
+    </MudButton>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private SalesOrderDto? _order;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _order = await OrderService.GetOrderByIdAsync(Id);
+    }
+
+    private Color GetStatusColor(SalesOrderDemo.Domain.Enums.OrderStatus status)
+    {
+        return status switch
+        {
+            SalesOrderDemo.Domain.Enums.OrderStatus.Pending => Color.Warning,
+            SalesOrderDemo.Domain.Enums.OrderStatus.Processing => Color.Info,
+            SalesOrderDemo.Domain.Enums.OrderStatus.Shipped => Color.Primary,
+            SalesOrderDemo.Domain.Enums.OrderStatus.Delivered => Color.Success,
+            SalesOrderDemo.Domain.Enums.OrderStatus.Cancelled => Color.Error,
+            _ => Color.Default
+        };
+    }
+}

@@ -1,0 +1,125 @@
+@page "/customers"
+@using SalesOrderDemo.Application.DTOs
+@using SalesOrderDemo.Application.Interfaces
+@inject ICustomerService CustomerService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Customers</PageTitle>
+
+<MudText Typo="Typo.h3" Class="mb-4">Customers</MudText>
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddDialog" Class="mb-4">
+    Add Customer
+</MudButton>
+
+@if (_customers == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudTable Items="@_customers" Hover="true" Striped="true" Filter="new Func<CustomerDto, bool>(FilterFunc)">
+        <ToolBarContent>
+            <MudTextField @bind-Value="_searchString" Placeholder="Search" Adornment="Adornment.Start" 
+                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Email</MudTh>
+            <MudTh>Phone</MudTh>
+            <MudTh>City</MudTh>
+            <MudTh>Country</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="Email">@context.Email</MudTd>
+            <MudTd DataLabel="Phone">@context.Phone</MudTd>
+            <MudTd DataLabel="City">@context.City</MudTd>
+            <MudTd DataLabel="Country">@context.Country</MudTd>
+            <MudTd DataLabel="Actions">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => OpenEditDialog(context))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => DeleteCustomer(context.Id))" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private List<CustomerDto>? _customers;
+    private string _searchString = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCustomers();
+    }
+
+    private async Task LoadCustomers()
+    {
+        var customers = await CustomerService.GetAllCustomersAsync();
+        _customers = customers.ToList();
+    }
+
+    private bool FilterFunc(CustomerDto customer)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        if (customer.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (customer.Email.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (customer.Phone.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+
+    private async Task OpenAddDialog()
+    {
+        var parameters = new DialogParameters<CustomerDialog>
+        {
+            { x => x.Customer, new CustomerDto() }
+        };
+
+        var dialog = await DialogService.ShowAsync<CustomerDialog>("Add Customer", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadCustomers();
+            Snackbar.Add("Customer added successfully", Severity.Success);
+        }
+    }
+
+    private async Task OpenEditDialog(CustomerDto customer)
+    {
+        var parameters = new DialogParameters<CustomerDialog>
+        {
+            { x => x.Customer, customer }
+        };
+
+        var dialog = await DialogService.ShowAsync<CustomerDialog>("Edit Customer", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadCustomers();
+            Snackbar.Add("Customer updated successfully", Severity.Success);
+        }
+    }
+
+    private async Task DeleteCustomer(int id)
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Confirm Delete",
+            "Are you sure you want to delete this customer?",
+            yesText: "Delete", cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await CustomerService.DeleteCustomerAsync(id);
+            await LoadCustomers();
+            Snackbar.Add("Customer deleted successfully", Severity.Success);
+        }
+    }
+}
